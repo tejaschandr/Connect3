@@ -189,4 +189,53 @@ async def get_user(user_id: uuid.UUID, session=Depends(get_neo4j_session)):
     else:
         raise HTTPException(status_code=404, detail="User not found")
 
+async def create_user_and_connect(user: User, existing_user_id: UUID, session=Depends(get_neo4j_session)):
+    # Create a new user node with the details from the user model
+    create_user_query = """
+    CREATE (new_user:User {
+        id: $id,
+        name: $name,
+        email: $email,
+        school_year: $school_year,
+        num_of_connections: $num_of_connections,
+        invited_by: $invited_by
+    })
+    RETURN new_user
+    """
+    
+    # Run the query to create the new user node
+    result = session.run(
+        create_user_query,
+        id=str(user.id),
+        name=user.name,
+        email=user.email,
+        school_year=user.school_year,
+        num_of_connections=user.num_of_connections,
+        invited_by=str(user.invited_by) if user.invited_by else None
+    )
+    
+    # Check if the new user was created
+    new_user_data = result.single()
+    if not new_user_data:
+        raise HTTPException(status_code=500, detail="Failed to create the new user")
+
+    # Create a connection between the existing user and the new user
+    connect_query = """
+    MATCH (existing_user:User {id: $existing_user_id}), (new_user:User {id: $new_user_id})
+    MERGE (existing_user)-[:CONNECTED_TO]->(new_user)
+    MERGE (new_user)-[:CONNECTED_TO]->(existing_user)
+    """
+    
+    # Run the query to create the connection
+    session.run(
+        connect_query,
+        existing_user_id=str(existing_user_id),
+        new_user_id=str(user.id)
+    )
+    
+    # Increment the connection count for the existing user
+    increment_connections(existing_user_id, session=session)
+
+    return {"message": "New user created and connected successfully"}
 # ------------------ FEED -------------------------
+
