@@ -1,15 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import CustomNode from './CustomNode'
+import { useState } from 'react'
 import ReactFlow, { 
   Controls,
   useNodesState,
   useEdgesState,
-  addEdge,
   ReactFlowProvider,
   MarkerType,
-  Connection,
-  Edge,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
@@ -21,94 +19,79 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { UserPlus, Send, X } from 'lucide-react'
 
-const generateRandomPosition = () => ({
-  x: Math.random() * 1000 - 500,
-  y: Math.random() * 800 - 400,
-})
+// Helper function to generate positions in a circular layout
+const generateCircularPosition = (index: number, total: number, radius: number = 300) => {
+  const angle = (index * 2 * Math.PI) / total
+  return {
+    x: radius * Math.cos(angle),
+    y: radius * Math.sin(angle)
+  }
+}
+
+// Initial network data
+const initialConnections = [
+  { id: 'you', name: 'You', email: 'you@example.com', referredBy: null, graduationYear: 2024, degree: 0 },
+  { id: '1', name: 'Alice Johnson', email: 'alice@example.com', referredBy: 'You', graduationYear: 2022, degree: 1 },
+  { id: '2', name: 'Bob Smith', email: 'bob@example.com', referredBy: 'You', graduationYear: 2023, degree: 1 },
+  { id: '3', name: 'Charlie Brown', email: 'charlie@example.com', referredBy: 'Alice Johnson', graduationYear: 2021, degree: 2 },
+  { id: '4', name: 'David Miller', email: 'david@example.com', referredBy: 'Bob Smith', graduationYear: 2022, degree: 2 },
+  { id: '5', name: 'Emma Davis', email: 'emma@example.com', referredBy: 'Charlie Brown', graduationYear: 2023, degree: 3 },
+  { id: '6', name: 'Frank Wilson', email: 'frank@example.com', referredBy: 'You', graduationYear: 2024, degree: 1 },
+  { id: '7', name: 'Grace Lee', email: 'grace@example.com', referredBy: 'David Miller', graduationYear: 2022, degree: 3 },
+  { id: '8', name: 'Henry Garcia', email: 'henry@example.com', referredBy: 'Emma Davis', graduationYear: 2023, degree: 4 },
+  { id: '9', name: 'Isabel Chen', email: 'isabel@example.com', referredBy: 'Frank Wilson', graduationYear: 2024, degree: 2 },
+  { id: '10', name: 'Jack Thompson', email: 'jack@example.com', referredBy: 'Grace Lee', graduationYear: 2022, degree: 4 },
+  { id: '11', name: 'Karen Martinez', email: 'karen@example.com', referredBy: 'You', graduationYear: 2023, degree: 1 },
+]
+
+// Define network connections
+const networkConnections = [
+  ['you', '1'], ['you', '2'], ['you', '6'], ['you', '11'],
+  ['1', '3'], ['2', '4'], ['3', '5'], ['4', '7'],
+  ['5', '8'], ['6', '9'], ['7', '10'], ['8', '10'],
+  ['9', '11'], ['3', '4'], ['5', '7'], ['6', '8'],
+  ['1', '4'], ['2', '6'], ['3', '7'], ['4', '9'],
+  ['5', '10'], ['7', '8'], ['9', '10'], ['11', '1'],
+]
 
 function DashboardContent() {
-  const [connections, setConnections] = useState([
-    { id: '1', name: 'Alice Johnson', email: 'alice@example.com', referredBy: 'You', graduationYear: 2022, degree: 1 },
-    { id: '2', name: 'Bob Smith', email: 'bob@example.com', referredBy: 'You', graduationYear: 2023, degree: 1 },
-    { id: '3', name: 'Charlie Brown', email: 'charlie@example.com', referredBy: 'Alice Johnson', graduationYear: 2021, degree: 2 },
-  ])
-
+  const [connections] = useState(initialConnections)
   const [posts, setPosts] = useState([
-    { id: 1, author: 'Alice Johnson', content: 'Just joined Connect3!', degree: 1 },
-    { id: 2, author: 'Bob Smith', content: 'Excited to be here!', degree: 1 },
+    { id: 1, author: 'Alice Johnson', content: 'Excited to connect with everyone!', degree: 1 },
+    { id: 2, author: 'Bob Smith', content: 'Great network we\'re building here!', degree: 1 },
+    { id: 3, author: 'Charlie Brown', content: 'Thanks for the connection, Alice!', degree: 2 },
   ])
 
-  const [newConnection, setNewConnection] = useState('')
   const [newPost, setNewPost] = useState('')
   const [sortBy, setSortBy] = useState('recent')
   const [selectedUser, setSelectedUser] = useState(null)
-  const [disabled, setDisabled] = useState(null);
 
-  // Create simplified nodes and edges
-  const initialNodes = [
-    { id: 'you', position: { x: 0, y: 0 }, data: { label: 'You' } },
-    ...connections.map(conn => ({
-        id: conn.id,
-        position: generateRandomPosition(),
-        data: { label: conn.name },
-    })),
-];
+  // Create initial nodes with circular layout
+  const initialNodes = connections.map((conn, index) => ({
+    id: conn.id,
+    position: generateCircularPosition(index, connections.length),
+    data: { 
+      label: conn.name,
+      isYou: conn.id === 'you'
+    },
+    type: 'custom'
+  }))
 
-  const initialEdges = connections.map(conn => ({
-    id: `e-you-${conn.id}`,
-    source: 'you',
-    target: conn.id,
+  // Create initial edges from networkConnections
+  const initialEdges = networkConnections.map(([ source, target ], index) => ({
+    id: `e-${source}-${target}`,
+    source,
+    target,
     type: 'straight',
-    style: { stroke: '#888', strokeWidth: 2 },  // Consistent edge styling
+    style: { stroke: '#888', strokeWidth: 2 },
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      color: '#888',  // Consistent arrow color
+      color: '#888',
     },
-  }));
-  
+  }))
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  const onConnect = useCallback(
-    (params: Edge | Connection) => setEdges((eds) => addEdge(
-      {
-        ...params,
-        type: 'straight',  // Ensures new edges are straight
-        style: { stroke: '#888', strokeWidth: 2 },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: '#888',
-        },
-      },
-      eds
-    )),
-    [setEdges]
-  );
-  
-
-  const handleAddConnection = () => {
-    if (newConnection && connections.length < 10) {
-      const newConn = { 
-        id: `${connections.length + 1}`, 
-        name: newConnection,
-        email: `${newConnection.toLowerCase().replace(' ', '.')}@example.com`,
-        referredBy: 'You',
-        graduationYear: new Date().getFullYear(),
-        degree: 1
-      }
-      setConnections([...connections, newConn])
-      setNodes((nds) => [
-        ...nds,
-        { id: newConn.id, position: generateRandomPosition(), data: { label: newConn.name } },
-      ])
-      setEdges((eds) => [
-        ...eds,
-        { id: `e-you-${newConn.id}`, source: 'you', target: newConn.id },
-      ])
-      setNewConnection('')
-    }
-  }
+  const [nodes] = useNodesState(initialNodes)
+  const [edges] = useEdgesState(initialEdges)
 
   const handleCreatePost = () => {
     if (newPost) {
@@ -126,23 +109,20 @@ function DashboardContent() {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        edgesUpdatable={!disabled}
-        edgesFocusable={!disabled}
-        nodesDraggable={!disabled}
-        nodesConnectable={!disabled}
-        nodesFocusable={!disabled}
-        draggable={!disabled}
-        panOnDrag={!disabled}
-        elementsSelectable={!disabled}      
+        nodeTypes={{ custom: CustomNode }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        panOnDrag={true}
+        zoomOnScroll={true}
         fitView
         className="w-full h-full"
       >
-        <Controls />
+        <Controls 
+          showInteractive={false}
+        />
       </ReactFlow>
-      
+
       <div className="absolute top-0 right-0 w-96 h-full overflow-y-auto p-4 space-y-4">
         <h1 className="text-3xl font-bold mb-4 text-primary">Feed</h1>
         <div className="mb-4">
@@ -187,29 +167,6 @@ function DashboardContent() {
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      <div className="absolute bottom-4 left-4 z-10">
-        <Card className="bg-background/50 border-primary">
-          <CardHeader>
-            <CardTitle className="text-primary">Add Connection</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="flex space-x-2" onSubmit={(e) => { e.preventDefault(); handleAddConnection(); }}>
-              <Input
-                placeholder="New connection name"
-                value={newConnection}
-                onChange={(e) => setNewConnection(e.target.value)}
-                disabled={connections.length >= 10}
-                className="bg-background/50 border-primary text-primary"
-              />
-              <Button type="submit" disabled={connections.length >= 10} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
       </div>
 
       {selectedUser && (

@@ -1,39 +1,51 @@
-import * as React from "react";
-import { Handle, NodeProps, Position } from "reactflow";
+import React from 'react';
+import { Handle, Position } from 'reactflow';
 
-export const DEFAULT_NODE_STYLES: React.CSSProperties = {
-  border: "2px solid black",
-  height: 100,
-  width: 100,
-  borderRadius: "50%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  position: "relative",
-  pointerEvents: "all",
-};
-
-const CustomNode = (nodeInfo: NodeProps) => {
+const CustomNode = ({ data }: { data: any }) => {
   return (
-      <div
-          data-nodeid={nodeInfo.id}
-          style={{
-              height: 100,
-              width: 100,
-              borderRadius: "50%",
-              backgroundColor: nodeInfo.id === 'you' ? '#5f95ff' : '#fff', // Change to white for others
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '2px solid black', // Border to distinguish nodes
-          }}
-      >
-          <div style={{ color: nodeInfo.id === 'you' ? '#fff' : '#000' }}>
-              {nodeInfo.data.label}
-          </div>
-          <Handle position={Position.Top} type="source" />
-          <Handle position={Position.Bottom} type="target" />
+    <div style={{
+      background: data.isYou ? '#e2e8f0' : '#fff', // Different background for "you" node
+      border: '1px solid #888',
+      borderRadius: '50%',
+      width: 80,
+      height: 80,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      padding: '10px',
+    }}>
+      <div style={{
+        textAlign: 'center',
+        width: '100%',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}>
+        {data.label}
       </div>
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{
+          opacity: 0, // Make handle invisible
+          left: '50%',
+          top: '50%',
+          transform: 'translate(50%, -50%)',
+        }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{
+          opacity: 0, // Make handle invisible
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+        }}
+      />
+    </div>
   );
 };
 
+export default CustomNode;
