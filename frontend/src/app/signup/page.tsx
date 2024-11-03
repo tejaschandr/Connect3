@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from 'next/link'
 import { v4 as uuidv4 } from 'uuid'
+import { auth } from "@/lib/firebase" // Import auth from firebase.js
+import { createUserWithEmailAndPassword } from "firebase/auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -45,22 +47,23 @@ export default function SignupPage() {
       return
     }
 
-    const userData = {
-      id: uuidv4(),
-      name: name.trim(),
-      email: email.trim(),
-      school_year: yearNum, // Using actual graduation year
-      num_of_connections: 0,
-      invited_by: null
-    }
-
     try {
-      // First check if the API is available
-      const healthCheck = await fetch(`${API_URL}/health`).catch(() => null)
-      if (!healthCheck?.ok) {
-        throw new Error('Unable to connect to the server. Please try again later.')
+      // Firebase sign-up
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user
+
+      // Prepare user data for API
+      const userData = {
+        id: uuidv4(),
+        name: name.trim(),
+        email: email.trim(),
+        school_year: yearNum,
+        num_of_connections: 0,
+        invited_by: null,
+        firebase_uid: user.uid  // Store Firebase UID
       }
 
+      // Save user data to your backend
       const response = await fetch(`${API_URL}/users`, {
         method: 'POST',
         headers: {
@@ -68,23 +71,23 @@ export default function SignupPage() {
         },
         body: JSON.stringify(userData),
       })
-      
-      const data = await response.json()
 
+      const data = await response.json()
       if (!response.ok) {
         throw new Error(data.detail || 'Failed to create account')
       }
 
+      // Save Firebase UID and navigate to dashboard if successful
       if (data.user?.id) {
-        localStorage.setItem('userId', data.user.id)
+        localStorage.setItem('userEmail', data.user.email)
         router.push('/dashboard')
       } else {
         throw new Error('Invalid response data')
       }
     } catch (error) {
       console.error('Error signing up:', error)
-      setError(error instanceof Error 
-        ? error.message 
+      setError(error instanceof Error
+        ? error.message
         : 'Failed to connect to the server. Please check your internet connection and try again.')
     } finally {
       setLoading(false)
@@ -150,9 +153,9 @@ export default function SignupPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
-              className="w-full bg-green-600 hover:bg-green-500 text-white transition-colors hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]" 
+            <Button
+              type="submit"
+              className="w-full bg-green-600 hover:bg-green-500 text-white transition-colors hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]"
               disabled={loading}
             >
               {loading ? 'Signing up...' : 'Sign up'}

@@ -1,243 +1,225 @@
 'use client'
-
-import { useState, useCallback } from 'react'
-import ReactFlow, { 
-  Controls,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  ReactFlowProvider,
-  MarkerType,
-  Connection,
-  Edge,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
-
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { UserPlus, Send, X } from 'lucide-react'
+import { UserPlus, Share2 } from "lucide-react"
+import { Toaster, toast } from 'sonner' // Import Sonner components
 
-const generateRandomPosition = () => ({
-  x: Math.random() * 1000 - 500,
-  y: Math.random() * 800 - 400,
-})
-
-function DashboardContent() {
-  const [connections, setConnections] = useState([
-    { id: '1', name: 'Alice Johnson', email: 'alice@example.com', referredBy: 'You', graduationYear: 2022, degree: 1 },
-    { id: '2', name: 'Bob Smith', email: 'bob@example.com', referredBy: 'You', graduationYear: 2023, degree: 1 },
-    { id: '3', name: 'Charlie Brown', email: 'charlie@example.com', referredBy: 'Alice Johnson', graduationYear: 2021, degree: 2 },
-  ])
-
-  const [posts, setPosts] = useState([
-    { id: 1, author: 'Alice Johnson', content: 'Just joined Connect3!', degree: 1 },
-    { id: 2, author: 'Bob Smith', content: 'Excited to be here!', degree: 1 },
-  ])
-
-  const [newConnection, setNewConnection] = useState('')
-  const [newPost, setNewPost] = useState('')
-  const [sortBy, setSortBy] = useState('recent')
-  const [selectedUser, setSelectedUser] = useState(null)
-  const [disabled, setDisabled] = useState(null);
-
-  // Create simplified nodes and edges
-  const initialNodes = [
-    { id: 'you', position: { x: 0, y: 0 }, data: { label: 'You' } },
-    ...connections.map(conn => ({
-        id: conn.id,
-        position: generateRandomPosition(),
-        data: { label: conn.name },
-    })),
-];
-
-  const initialEdges = connections.map(conn => ({
-    id: `e-you-${conn.id}`,
-    source: 'you',
-    target: conn.id,
-    type: 'straight',
-    style: { stroke: '#888', strokeWidth: 2 },  // Consistent edge styling
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: '#888',  // Consistent arrow color
-    },
-  }));
-  
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  const onConnect = useCallback(
-    (params: Edge | Connection) => setEdges((eds) => addEdge(
-      {
-        ...params,
-        type: 'straight',  // Ensures new edges are straight
-        style: { stroke: '#888', strokeWidth: 2 },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: '#888',
-        },
-      },
-      eds
-    )),
-    [setEdges]
-  );
-  
-
-  const handleAddConnection = () => {
-    if (newConnection && connections.length < 10) {
-      const newConn = { 
-        id: `${connections.length + 1}`, 
-        name: newConnection,
-        email: `${newConnection.toLowerCase().replace(' ', '.')}@example.com`,
-        referredBy: 'You',
-        graduationYear: new Date().getFullYear(),
-        degree: 1
-      }
-      setConnections([...connections, newConn])
-      setNodes((nds) => [
-        ...nds,
-        { id: newConn.id, position: generateRandomPosition(), data: { label: newConn.name } },
-      ])
-      setEdges((eds) => [
-        ...eds,
-        { id: `e-you-${newConn.id}`, source: 'you', target: newConn.id },
-      ])
-      setNewConnection('')
-    }
-  }
-
-  const handleCreatePost = () => {
-    if (newPost) {
-      setPosts([{ id: posts.length + 1, author: 'You', content: newPost, degree: 0 }, ...posts])
-      setNewPost('')
-    }
-  }
-
-  const sortedPosts = [...posts].sort((a, b) => {
-    return sortBy === 'recent' ? b.id - a.id : a.degree - b.degree
-  })
-
-  return (
-    <div className="h-screen relative overflow-hidden">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        edgesUpdatable={!disabled}
-        edgesFocusable={!disabled}
-        nodesDraggable={!disabled}
-        nodesConnectable={!disabled}
-        nodesFocusable={!disabled}
-        draggable={!disabled}
-        panOnDrag={!disabled}
-        elementsSelectable={!disabled}      
-        fitView
-        className="w-full h-full"
-      >
-        <Controls />
-      </ReactFlow>
-      
-      <div className="absolute top-0 right-0 w-96 h-full overflow-y-auto p-4 space-y-4">
-        <h1 className="text-3xl font-bold mb-4 text-primary">Feed</h1>
-        <div className="mb-4">
-          <Label htmlFor="sort" className="text-primary">Sort by</Label>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger id="sort" className="bg-background/50 border-primary text-primary">
-              <SelectValue placeholder="Select sorting method" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="recent">Most Recent</SelectItem>
-              <SelectItem value="distance">Shortest Distance</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Card className="mb-4 bg-background/50 border-primary">
-          <CardHeader>
-            <CardTitle className="text-primary">Create Post</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={(e) => { e.preventDefault(); handleCreatePost(); }}>
-              <Textarea
-                placeholder="What's on your mind?"
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-                className="mb-2 bg-background/50 border-primary text-primary"
-              />
-              <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
-                <Send className="w-4 h-4 mr-2" />
-                Post
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-        {sortedPosts.map(post => (
-          <Card key={post.id} className="bg-background/50 border-primary">
-            <CardHeader>
-              <CardTitle className="text-lg text-primary">{post.author}</CardTitle>
-              <div className="text-sm text-primary/70">Degree of separation: {post.degree}</div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-primary">{post.content}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="absolute bottom-4 left-4 z-10">
-        <Card className="bg-background/50 border-primary">
-          <CardHeader>
-            <CardTitle className="text-primary">Add Connection</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="flex space-x-2" onSubmit={(e) => { e.preventDefault(); handleAddConnection(); }}>
-              <Input
-                placeholder="New connection name"
-                value={newConnection}
-                onChange={(e) => setNewConnection(e.target.value)}
-                disabled={connections.length >= 10}
-                className="bg-background/50 border-primary text-primary"
-              />
-              <Button type="submit" disabled={connections.length >= 10} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-
-      {selectedUser && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-          <Card className="bg-background border-primary w-80">
-            <CardHeader className="flex flex-row justify-between items-start">
-              <CardTitle className="text-primary">{selectedUser.name}</CardTitle>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedUser(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-primary"><strong>Email:</strong> {selectedUser.email}</p>
-              <p className="text-primary"><strong>Referred by:</strong> {selectedUser.referredBy}</p>
-              <p className="text-primary"><strong>Graduation Year:</strong> {selectedUser.graduationYear}</p>
-              <p className="text-primary"><strong>Degree of Separation:</strong> {selectedUser.degree}</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
-  )
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function Dashboard() {
-  return (
-    <ReactFlowProvider>
-      <DashboardContent />
-    </ReactFlowProvider>
-  )
+    const [newConnection, setNewConnection] = useState('')
+    const [user, setUser] = useState(null)
+    const [connections, setConnections] = useState([])
+    const [posts, setPosts] = useState([])
+    const [loading, setLoading] = useState(true)
+    const router = useRouter()
+
+    useEffect(() => {
+        const userEmail = localStorage.getItem('userEmail')
+        if (!userEmail) {
+            // If no email, redirect to login
+            router.push('/login')
+            return
+        }
+
+        const fetchData = async () => {
+            try {
+                // Fetch user data
+                const resUser = await fetch(`${API_URL}/users/email/${userEmail}`)
+                if (!resUser.ok) {
+                    throw new Error('Failed to fetch user data')
+                }
+                const userData = await resUser.json()
+                setUser(userData)
+
+                // Fetch user connections
+                const resConnections = await fetch(`${API_URL}/users/${userEmail}/connections`)
+                if (!resConnections.ok) {
+                    throw new Error('Failed to fetch connections')
+                }
+                const connectionsData = await resConnections.json()
+                setConnections(connectionsData.connections)
+
+                // Fetch user feed
+                const resFeed = await fetch(`${API_URL}/feed/${userData.id}`)
+                if (!resFeed.ok) {
+                    throw new Error('Failed to fetch feed')
+                }
+                const feedData = await resFeed.json()
+                setPosts(feedData.feed)
+
+                setLoading(false)
+            } catch (err) {
+                console.error(err)
+                toast.error(err.message || 'An error occurred', { position: "bottom-right" })
+                setLoading(false)
+            }
+        }
+
+        fetchData()
+    }, [router])
+
+    const handleNewConnection = async (e) => {
+        e.preventDefault()
+        if (connections.length >= 3) {
+            toast.error('You have reached the maximum of 3 connections', { position: "bottom-right" })
+            return
+        }
+        if (!newConnection.trim()) {
+            toast.error('Please enter an email to connect', { position: "bottom-right" })
+            return
+        }
+        try {
+            // Send a request to connect users by email
+            const res = await fetch(`${API_URL}/connect_users_by_email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email1: user.email,
+                    email2: newConnection.trim(),
+                }),
+            })
+
+            if (!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.detail || 'Failed to connect users')
+            }
+
+            const data = await res.json()
+            console.log(data.message)
+
+            // Refresh connections
+            const resConnections = await fetch(`${API_URL}/users/${user.email}/connections`)
+            if (resConnections.ok) {
+                const connectionsData = await resConnections.json()
+                setConnections(connectionsData.connections)
+            }
+
+        } catch (err) {
+            console.error(err)
+            toast.error(err.message || 'An error occurred', { position: "bottom-right" })
+        }
+
+        setNewConnection('')
+    }
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    }
+
+    return (
+        <>
+            <Toaster richColors /> {/* Initialize the Toaster for notifications */}
+            <div className="min-h-screen bg-gray-100 p-4">
+                <div className="max-w-6xl mx-auto space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Connect3 Dashboard</CardTitle>
+                            <CardDescription>Your personal network hub</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center space-x-4">
+                                <Avatar className="w-20 h-20">
+                                    <AvatarImage src="/placeholder.svg?height=80&width=80" alt={user.name} />
+                                    <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <h2 className="text-2xl font-bold">{user.name}</h2>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card className="md:col-span-1">
+                            <CardHeader>
+                                <CardTitle>Your Connections</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {connections.length > 0 ? (
+                                    <ul className="space-y-2">
+                                        {connections.map((connection) => (
+                                            <li key={connection.id} className="flex items-center space-x-2">
+                                                <Avatar>
+                                                    <AvatarFallback>{connection.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-medium">{connection.name}</p>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p>No connections found.</p>
+                                )}
+                            </CardContent>
+                            <CardFooter>
+                                <form onSubmit={handleNewConnection} className="w-full">
+                                    <Label htmlFor="newConnection" className="sr-only">Request New Connection</Label>
+                                    <div className="flex space-x-2">
+                                        <Input
+                                            id="newConnection"
+                                            placeholder="Email to connect"
+                                            value={newConnection}
+                                            onChange={(e) => setNewConnection(e.target.value)} disabled={connections.length >= 3}
+                                        />
+                                        <Button type="submit" size="icon">
+                                            <UserPlus className="h-4 w-4" />
+                                            <span className="sr-only">Request Connection</span>
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardFooter>
+                        </Card>
+
+                        <Card className="md:col-span-2">
+                            <CardHeader>
+                                <CardTitle>Network Visualization</CardTitle>
+                                <CardDescription>Visual representation of your connections</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
+                                    <Share2 className="h-12 w-12 text-gray-400" />
+                                    <span className="sr-only">Placeholder for network graph</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Your Feed</CardTitle>
+                            <CardDescription>Posts from your network</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {posts.length > 0 ? (
+                                <ul className="space-y-4">
+                                    {posts.map((post) => (
+                                        <li key={post.id}>
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle className="text-sm font-medium">{post.author_name}</CardTitle>
+                                                    <CardDescription>Degree of separation: {post.degree}</CardDescription>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <p>{post.content}</p>
+                                                </CardContent>
+                                            </Card>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p>No posts available.</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </>
+    )
 }

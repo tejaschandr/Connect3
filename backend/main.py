@@ -78,6 +78,110 @@ def get_neo4j_session():
         raise HTTPException(status_code=500, detail=f"Database connection error: {str(e)}")
 
 # Helper functions
+def find_by_email(session, email: str):
+    try:
+        query = """
+        MATCH (u:User {email: $email})
+        RETURN u
+        """
+        result = session.run(query, email=email)
+        user_data = result.single()
+        
+        if user_data:
+            user = user_data["u"]
+            return {
+                "id": user["id"],
+                "name": user["name"],
+                "email": user["email"],
+                "school_year": user["school_year"],
+                "num_of_connections": user["num_of_connections"],
+                "invited_by": user.get("invited_by")
+            }
+        return None
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+from pydantic import BaseModel, EmailStr
+
+# Request model for connecting users by email
+class ConnectionByEmailRequest(BaseModel):
+    email1: EmailStr
+    email2: EmailStr
+
+@app.post("/connect_users_by_email")
+async def connect_users_by_email(connection_request: ConnectionByEmailRequest, session=Depends(get_neo4j_session)):
+    try:
+        # Find the first user by email
+        user1_data = find_by_email(session, connection_request.email1)
+        if not user1_data:
+            raise HTTPException(status_code=404, detail="User with email1 not found")
+
+        # Find the second user by email
+        user2_data = find_by_email(session, connection_request.email2)
+        if not user2_data:
+            raise HTTPException(status_code=404, detail="User with email2 not found")
+
+        # Create a bidirectional connection between the two users
+        session.run("""
+            MATCH (u1:User {id: $user1_id}), (u2:User {id: $user2_id})
+            MERGE (u1)-[:CONNECTED_TO]->(u2)
+            MERGE (u2)-[:CONNECTED_TO]->(u1)
+        """, user1_id=str(user1_data["id"]), user2_id=str(user2_data["id"]))
+
+        # Increment connection counts for both users
+        increment_connections(UUID(user1_data["id"]), session)
+
+        return {"message": "Connection created successfully between users"}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create connection: {str(e)}"
+        )
+
+@app.get("/users/email/{email}")
+async def get_user_by_email(email: str, session=Depends(get_neo4j_session)):
+    user = find_by_email(session, email)
+    if user:
+        return user
+    raise HTTPException(status_code=404, detail="User not found")
+
+@app.get("/users/{email}/connections")
+async def get_user_connections(email: str, session=Depends(get_neo4j_session)):
+    try:
+        # Find the user by email
+        user_data = find_by_email(session, email)
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Retrieve all connected users
+        query = """
+        MATCH (u:User {email: $email})-[:CONNECTED_TO]-(connected_user:User)
+        RETURN DISTINCT connected_user
+        """
+        result = session.run(query, email=email)
+        
+        # Collect connections
+        connections = [
+            {
+                "id": record["connected_user"]["id"],
+                "name": record["connected_user"]["name"],
+                "email": record["connected_user"]["email"],
+                "school_year": record["connected_user"]["school_year"],
+                "num_of_connections": record["connected_user"]["num_of_connections"],
+                "invited_by": record["connected_user"].get("invited_by")
+            }
+            for record in result
+        ]
+
+        return {"connections": connections}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
 def find_by_uuid(session, user_id: uuid.UUID):
     try:
         query = """
