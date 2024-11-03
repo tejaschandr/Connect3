@@ -20,3 +20,5 @@ This project aims to visualize personal networks and explore the concept of six 
 ## Contact
 Project Link: [https://github.com/tejascandhar/Connect3](https://github.com/tejascandhar/Connect3)
 
+## Latest Updates
+- [Explore Your Social Connections](https://dev.to/keychainxs/dev-post-1g68) - Discover how our latest feature lets you visualize social connections up to six degrees of separation.
