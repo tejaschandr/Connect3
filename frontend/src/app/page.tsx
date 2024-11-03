@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4"> {/* Set the background to black */}
       <Card className="w-full max-w-lg shadow-lg bg-gray-800 border border-pink-500">
         <CardHeader className="text-center">
           <div className="w-48 h-48 mx-auto mb-6">
@@ -33,6 +33,11 @@ export default function Home() {
             <Link href="/login">Login</Link>
           </Button>
         </CardFooter>
+        <div className="mt-4 text-center">
+          <Button asChild variant="link" className="text-pink-300 hover:text-pink-200">
+            <Link href="/about">Learn More About Connect3</Link>
+          </Button>
+        </div>
       </Card>
     </div>
   )
