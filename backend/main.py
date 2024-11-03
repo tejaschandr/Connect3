@@ -331,7 +331,91 @@ async def create_user_and_connect(user: User, existing_user_id: UUID, session=De
             status_code=500,
             detail=f"Failed to create user and establish connection: {str(e)}"
         )
+# ----------------------- FEED -----------------------------------
+
+from datetime import datetime
+from typing import List
+from pydantic import BaseModel, Field
+
+# Post model
+class Post(BaseModel):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    content: str
+    author_id: uuid.UUID
+    visibility_degree: int
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+# Helper function to create a post
+def create_post(session, post: Post):
+    query = """
+    MATCH (u:User {id: $author_id})
+    CREATE (p:Post {
+        id: $post_id,
+        content: $content,
+        visibility_degree: $visibility_degree,
+        timestamp: $timestamp
+    })-[:POSTED_BY]->(u)
+    RETURN p
+    """
+    result = session.run(
+        query,
+        post_id=str(post.id),
+        content=post.content,
+        visibility_degree=post.visibility_degree,
+        timestamp=post.timestamp,
+        author_id=str(post.author_id)
+    )
+    post_data = result.single()
+    
+    if post_data:
+        return {"message": "Post created successfully", "post": post_data["p"]}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to create post")
+
+# Endpoint to create a post
+@app.post("/posts")
+async def create_post_endpoint(post: Post, session=Depends(get_neo4j_session)):
+    author = find_by_uuid(session, post.author_id)
+    if not author:
+        raise HTTPException(status_code=404, detail="Author not found")
+    
+    return create_post(session, post)
+
+# Helper function to get feed posts based on visibility degree
+def get_feed_posts(session, user_id: uuid.UUID):
+    query = """
+    MATCH (p:Post)-[:POSTED_BY]->(author:User), (user:User {id: $user_id})
+    OPTIONAL MATCH path = shortestPath((author)-[:CONNECTED_TO*]-(user))
+    WITH p, author, user, length(path) AS degree
+    WHERE degree IS NOT NULL AND degree <= p.visibility_degree
+    RETURN p ORDER BY p.timestamp DESC
+    """
+    
+    result = session.run(query, user_id=str(user_id))
+    posts = [
+        {
+            "id": record["p"]["id"],
+            "content": record["p"]["content"],
+            "author_id": record["p"]["author_id"],
+            "visibility_degree": record["p"]["visibility_degree"],
+            "timestamp": record["p"]["timestamp"]
+        }
+        for record in result
+    ]
+    return posts
+
+# Endpoint to get the feed
+@app.get("/feed/{user_id}")
+async def get_feed(user_id: uuid.UUID, session=Depends(get_neo4j_session)):
+    # Ensure the requesting user exists
+    user = find_by_uuid(session, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    feed_posts = get_feed_posts(session, user_id)
+    return {"feed": feed_posts}
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
