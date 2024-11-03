@@ -46,7 +46,7 @@ def find_by_uuid(session, user_id: uuid.UUID):
         return {
             "id": user["id"],
             "name": user["name"],
-            "phone_number": user["phone_number"],
+            "email": user["email"],
             "school_year": user["school_year"],
             "num_of_connections": user["num_of_connections"],
             "invited_by": user.get("invited_by")
@@ -68,7 +68,7 @@ def find_by_name(session, name: str):
         return {
             "id": user["id"],
             "name": user["name"],
-            "phone_number": user["phone_number"],
+            "email": user["email"],
             "school_year": user["school_year"],
             "num_of_connections": user["num_of_connections"],
             "invited_by": user.get("invited_by")
@@ -85,7 +85,7 @@ async def create_user(user: User, session=Depends(get_neo4j_session)):
     CREATE (u:User {
         id: $id,
         name: $name,
-        phone_number: $phone_number,
+        email: $email,
         school_year: $school_year,
         num_of_connections: $num_of_connections,
         invited_by: $invited_by
@@ -96,7 +96,7 @@ async def create_user(user: User, session=Depends(get_neo4j_session)):
     result = session.run(query, 
                          id=str(user.id), 
                          name=user.name, 
-                         phone_number=user.phone_number, 
+                         email=user.email, 
                          school_year=user.school_year, 
                          num_of_connections=user.num_of_connections, 
                          invited_by=str(user.invited_by) if user.invited_by else None)
@@ -189,6 +189,7 @@ async def get_user(user_id: uuid.UUID, session=Depends(get_neo4j_session)):
     else:
         raise HTTPException(status_code=404, detail="User not found")
 
+@app.post("/create_user_and_connect")
 async def create_user_and_connect(user: User, existing_user_id: UUID, session=Depends(get_neo4j_session)):
     # Create a new user node with the details from the user model
     create_user_query = """
